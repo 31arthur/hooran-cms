@@ -10,19 +10,19 @@
  */
 
 import {
-  DocumentReference,
-  CollectionReference,
-  Query,
+  type DocumentReference,
+  type CollectionReference,
+  type Query,
   doc,
   collection,
   query,
   where,
   orderBy,
   limit,
-  DocumentData,
-  QueryConstraint,
-  WhereFilterOp,
-  OrderByDirection,
+  type DocumentData,
+  type QueryConstraint,
+  type WhereFilterOp,
+  type OrderByDirection,
   Timestamp,
   serverTimestamp,
 } from 'firebase/firestore'

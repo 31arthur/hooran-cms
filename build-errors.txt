@@ -1,0 +1,171 @@
+src/application/usecases/AuditLoggingUseCase.ts(27,3): error TS6196: 'AuditAction' is declared but never used.
+src/application/usecases/AuditLoggingUseCase.ts(28,3): error TS6196: 'AuditResourceType' is declared but never used.
+src/application/usecases/AuditLoggingUseCase.ts(169,5): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/application/usecases/AuditLoggingUseCase.ts(195,5): error TS6133: 'requestingUserId' is declared but its value is never read.
+src/application/usecases/AuditLoggingUseCase.ts(248,5): error TS6133: 'requestingUserId' is declared but its value is never read.
+src/application/usecases/AuditRetrievalUseCase.ts(119,9): error TS2345: Argument of type 'number' is not assignable to parameter of type 'AuditResourceType | undefined'.
+src/application/usecases/AuditRetrievalUseCase.ts(193,5): error TS6133: 'userId' is declared but its value is never read.
+src/application/usecases/ContentManagementUseCase.ts(858,5): error TS6133: 'projectId' is declared but its value is never read.
+src/application/usecases/ContentManagementUseCase.ts(859,5): error TS6133: 'userId' is declared but its value is never read.
+src/application/usecases/DashboardDataUseCase.ts(88,11): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/application/usecases/DashboardDataUseCase.ts(112,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/application/usecases/DashboardDataUseCase.ts(113,13): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/application/usecases/DashboardDataUseCase.ts(168,74): error TS2554: Expected 1 arguments, but got 2.
+src/application/usecases/DashboardDataUseCase.ts(220,77): error TS2554: Expected 1 arguments, but got 2.
+src/application/usecases/DashboardDataUseCase.ts(312,77): error TS2554: Expected 1 arguments, but got 2.
+src/application/usecases/DashboardDataUseCase.ts(326,18): error TS2367: This comparison appears to be unintentional because the types '"USER_ROLE" | "PROJECT" | "AUTH" | "SYSTEM_SETTINGS" | "API_KEY"' and '"USER"' have no overlap.
+src/application/usecases/DashboardDataUseCase.ts(387,11): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/application/usecases/DashboardDataUseCase.ts(392,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/application/usecases/DashboardDataUseCase.ts(456,54): error TS2554: Expected 1 arguments, but got 2.
+src/application/usecases/IContentManagementUseCase.ts(34,31): error TS6196: 'ContentDetailDTO' is declared but never used.
+src/application/usecases/MediaManagementUseCase.ts(46,15): error TS1294: This syntax is not allowed when 'erasableSyntaxOnly' is enabled.
+src/application/usecases/MediaManagementUseCase.ts(129,33): error TS6133: 'file' is declared but its value is never read.
+src/application/usecases/MediaManagementUseCase.ts(186,11): error TS2367: This comparison appears to be unintentional because the types '"Super" | "Admin"' and '"User"' have no overlap.
+src/application/usecases/MediaManagementUseCase.ts(229,5): error TS6133: 'userId' is declared but its value is never read.
+src/application/usecases/MediaManagementUseCase.ts(230,5): error TS6133: 'userRole' is declared but its value is never read.
+src/application/usecases/MediaManagementUseCase.ts(246,5): error TS6133: 'userId' is declared but its value is never read.
+src/application/usecases/MediaManagementUseCase.ts(247,5): error TS6133: 'userRole' is declared but its value is never read.
+src/application/usecases/MediaManagementUseCase.ts(265,5): error TS6133: 'userRole' is declared but its value is never read.
+src/application/usecases/SchemaManagementUseCase.ts(187,5): error TS6133: 'userRole' is declared but its value is never read.
+src/application/usecases/SchemaManagementUseCase.ts(450,35): error TS2554: Expected 4 arguments, but got 3.
+src/application/usecases/UserManagementUseCase.ts(24,3): error TS6196: 'UserWithProjects' is declared but never used.
+src/application/usecases/UserManagementUseCase.ts(633,11): error TS2561: Object literal may only specify known properties, but 'photoURL' does not exist in type 'CreateUserInput'. Did you mean to write 'photoUrl'?
+src/domain/dtos/SchemaDTO.ts(263,7): error TS2322: Type 'boolean | undefined' is not assignable to type 'boolean'.
+  Type 'undefined' is not assignable to type 'boolean'.
+src/domain/index.ts(23,1): error TS2308: Module './entities' has already exported a member named 'AuditAction'. Consider explicitly re-exporting to resolve the ambiguity.
+src/domain/index.ts(23,1): error TS2308: Module './entities' has already exported a member named 'AuditResourceType'. Consider explicitly re-exporting to resolve the ambiguity.
+src/firebase/examples.ts(14,3): error TS6133: 'setDoc' is declared but its value is never read.
+src/firebase/examples.ts(34,37): error TS6196: 'AuditLogEntry' is declared but never used.
+src/firebase/utils.ts(194,10): error TS1361: 'Timestamp' cannot be used as a value because it was imported using 'import type'.
+src/infrastructure/adapters/ProjectAdapter.ts(15,29): error TS6196: 'Timestamp' is declared but never used.
+src/infrastructure/repositories/__mocks__/MockContentRepository.ts(21,14): error TS2420: Class 'MockContentRepository' incorrectly implements interface 'IContentRepository'.
+  Type 'MockContentRepository' is missing the following properties from type 'IContentRepository': getPublishedContentByCollection, countContentEntries
+src/infrastructure/repositories/__mocks__/MockContentRepository.ts(152,5): error TS6133: 'userId' is declared but its value is never read.
+src/infrastructure/repositories/__mocks__/MockProjectRepository.ts(48,5): error TS6133: 'initialAdminEmail' is declared but its value is never read.
+src/infrastructure/repositories/__mocks__/MockProjectRepository.ts(74,5): error TS6133: 'userId' is declared but its value is never read.
+src/infrastructure/repositories/__mocks__/MockProjectRepository.ts(89,42): error TS6133: 'userId' is declared but its value is never read.
+src/infrastructure/repositories/__mocks__/MockSchemaRepository.ts(20,14): error TS2420: Class 'MockSchemaRepository' incorrectly implements interface 'ISchemaRepository'.
+  Property 'getSchemas' is missing in type 'MockSchemaRepository' but required in type 'ISchemaRepository'.
+src/infrastructure/repositories/__mocks__/MockSchemaRepository.ts(119,5): error TS6133: 'collectionId' is declared but its value is never read.
+src/infrastructure/repositories/__mocks__/MockSchemaRepository.ts(120,5): error TS6133: 'userId' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseAuditLogRepository.ts(38,3): error TS6133: 'deleteDoc' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseAuditRepository.ts(25,3): error TS6133: 'doc' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseAuditRepository.ts(34,8): error TS6133: 'DocumentData' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseAuditRepository.ts(72,9): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Omit<AuditLogEntry, "id">'.
+src/infrastructure/repositories/FirebaseAuditRepository.ts(351,28): error TS6133: 'beforeDate' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseAuditRepository.ts(351,46): error TS6133: 'projectId' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseMediaRepository.ts(26,3): error TS6133: 'getMetadata' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseProjectRecordsRepository.ts(40,3): error TS6133: 'query' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseProjectRecordsRepository.ts(41,3): error TS6133: 'where' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseProjectRepository.ts(37,8): error TS6133: 'DocumentData' is declared but its value is never read.
+src/infrastructure/repositories/FirebaseProjectRepository.ts(214,5): error TS6133: 'userId' is declared but its value is never read.
+src/infrastructure/services/AuditService.ts(28,24): error TS2339: Property 'get' does not exist on type 'DependencyInjectionContainer'.
+src/presentation/components/ContentManager.tsx(30,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/components/ContentManager.tsx(38,15): error TS2305: Module '"@/domain/entities"' has no exported member 'Schema'.
+src/presentation/components/ContentManager.tsx(92,38): error TS2344: Type 'ContentManagerParams' does not satisfy the constraint 'string | Record<string, string | undefined>'.
+  Type 'ContentManagerParams' is not assignable to type 'Record<string, string | undefined>'.
+    Index signature for type 'string' is missing in type 'ContentManagerParams'.
+src/presentation/components/ContentManager.tsx(129,31): error TS7006: Parameter 'field' implicitly has an 'any' type.
+src/presentation/components/ContentManager.tsx(177,38): error TS2339: Property 'updateEntry' does not exist on type 'IContentManagementUseCase'.
+src/presentation/components/ContentManager.tsx(320,59): error TS2339: Property 'getSchemaById' does not exist on type 'IContentManagementUseCase'.
+src/presentation/components/ContentManager.tsx(378,56): error TS2339: Property 'getEntries' does not exist on type 'IContentManagementUseCase'.
+src/presentation/components/ContentManager.tsx(765,44): error TS7006: Parameter 'column' implicitly has an 'any' type.
+src/presentation/components/ContentManager.tsx(791,46): error TS7006: Parameter 'column' implicitly has an 'any' type.
+src/presentation/components/DynamicForm.tsx(39,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/components/DynamicForm.tsx(273,14): error TS2678: Type '"email"' is not comparable to type 'SchemaFieldType'.
+src/presentation/components/DynamicForm.tsx(274,14): error TS2678: Type '"url"' is not comparable to type 'SchemaFieldType'.
+src/presentation/components/DynamicForm.tsx(278,21): error TS2367: This comparison appears to be unintentional because the types '"text"' and '"email"' have no overlap.
+src/presentation/components/DynamicForm.tsx(278,56): error TS2367: This comparison appears to be unintentional because the types '"text"' and '"url"' have no overlap.
+src/presentation/components/DynamicForm.tsx(307,14): error TS2678: Type '"textarea"' is not comparable to type 'SchemaFieldType'.
+src/presentation/components/DynamicForm.tsx(382,14): error TS2678: Type '"select"' is not comparable to type 'SchemaFieldType'.
+src/presentation/components/DynamicForm.tsx(395,47): error TS7006: Parameter 'choice' implicitly has an 'any' type.
+src/presentation/components/DynamicForm.tsx(479,43): error TS2339: Property 'maxItems' does not exist on type '{ minLength?: number | undefined; maxLength?: number | undefined; min?: number | undefined; max?: number | undefined; pattern?: string | undefined; custom?: string | undefined; }'.
+src/presentation/components/DynamicForm.tsx(503,43): error TS2339: Property 'maxItems' does not exist on type '{ minLength?: number | undefined; maxLength?: number | undefined; min?: number | undefined; max?: number | undefined; pattern?: string | undefined; custom?: string | undefined; }'.
+src/presentation/components/DynamicForm.tsx(631,15): error TS2484: Export declaration conflicts with exported declaration of 'DynamicFormProps'.
+src/presentation/components/DynamicForm.tsx(631,33): error TS2484: Export declaration conflicts with exported declaration of 'DynamicFormRef'.
+src/presentation/components/media/MediaPreview.tsx(19,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/components/media/MediaPreview.tsx(149,37): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaPreview.tsx(172,48): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaPreview.tsx(210,32): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaPreview.tsx(231,32): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaPreview.tsx(234,53): error TS2339: Property 'fileSize' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaPreview.tsx(308,44): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaUpload.tsx(94,11): error TS2339: Property 'user' does not exist on type 'AuthContextType'.
+src/presentation/components/media/MediaUpload.tsx(336,40): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MediaUpload.tsx(339,41): error TS2339: Property 'fileSize' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MultipleMediaUpload.tsx(23,54): error TS6133: 'Plus' is declared but its value is never read.
+src/presentation/components/media/MultipleMediaUpload.tsx(102,11): error TS2339: Property 'user' does not exist on type 'AuthContextType'.
+src/presentation/components/media/MultipleMediaUpload.tsx(172,53): error TS6133: 'index' is declared but its value is never read.
+src/presentation/components/media/MultipleMediaUpload.tsx(395,50): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MultipleMediaUpload.tsx(418,34): error TS2339: Property 'fileName' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/MultipleMediaUpload.tsx(421,35): error TS2339: Property 'fileSize' does not exist on type 'MediaMetadata'.
+src/presentation/components/media/StagedMultipleMediaUpload.tsx(19,45): error TS6133: 'GripVertical' is declared but its value is never read.
+src/presentation/components/ProjectSelector.tsx(31,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/components/ProtectedRoute.tsx(198,59): error TS6133: 'signOut' is declared but its value is never read.
+src/presentation/components/RecordCreateDialog.tsx(34,10): error TS6133: 'formData' is declared but its value is never read.
+src/presentation/components/RecordCreateDialog.tsx(39,11): error TS2339: Property 'currentUser' does not exist on type 'AuthContextType | undefined'.
+src/presentation/components/RecordCreateDialog.tsx(39,24): error TS2339: Property 'userRole' does not exist on type 'AuthContextType | undefined'.
+src/presentation/components/RecordCreateDialog.tsx(40,11): error TS2339: Property 'selectedProject' does not exist on type 'ProjectContextType | undefined'.
+src/presentation/components/RecordCreateDialog.tsx(144,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordCreateDialog.tsx(153,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordCreateDialog.tsx(164,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordCreateDialog.tsx(207,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordCreateDialog.tsx(225,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordCreateDialog.tsx(256,52): error TS2339: Property 'displayName' does not exist on type 'SchemaDefinition'.
+src/presentation/components/RecordEditDialog.tsx(37,10): error TS6133: 'formData' is declared but its value is never read.
+src/presentation/components/RecordEditDialog.tsx(42,11): error TS2339: Property 'currentUser' does not exist on type 'AuthContextType | undefined'.
+src/presentation/components/RecordEditDialog.tsx(42,24): error TS2339: Property 'userRole' does not exist on type 'AuthContextType | undefined'.
+src/presentation/components/RecordEditDialog.tsx(43,11): error TS2339: Property 'selectedProject' does not exist on type 'ProjectContextType | undefined'.
+src/presentation/components/RecordEditDialog.tsx(155,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordEditDialog.tsx(164,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordEditDialog.tsx(175,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordEditDialog.tsx(219,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordEditDialog.tsx(236,9): error TS2353: Object literal may only specify known properties, and 'type' does not exist in type 'ToastOptions'.
+src/presentation/components/RecordEditDialog.tsx(270,46): error TS2339: Property 'displayName' does not exist on type 'SchemaDefinition'.
+src/presentation/components/Sidebar.tsx(45,9): error TS6133: 'userRole' is declared but its value is never read.
+src/presentation/components/SlidingTopBar.tsx(18,56): error TS6133: 'User' is declared but its value is never read.
+src/presentation/components/SlidingTopBar.tsx(36,42): error TS2339: Property 'selectProject' does not exist on type 'ProjectContextType'.
+src/presentation/components/SlidingTopBar.tsx(39,33): error TS2503: Cannot find namespace 'NodeJS'.
+src/presentation/components/TopBar.tsx(44,44): error TS2339: Property 'logout' does not exist on type 'AuthContextType'.
+src/presentation/components/UserAssignmentPage.tsx(13,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/components/UserAssignmentPage.tsx(556,15): error TS2484: Export declaration conflicts with exported declaration of 'AdminUser'.
+src/presentation/components/UserAssignmentPage.tsx(556,26): error TS2484: Export declaration conflicts with exported declaration of 'Project'.
+src/presentation/context/AuthContext.tsx(46,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/context/AuthContext.tsx(55,1): error TS6192: All imports in import declaration are unused.
+src/presentation/context/AuthContext.tsx(56,16): error TS6133: 'db' is declared but its value is never read.
+src/presentation/context/AuthContext.tsx(268,13): error TS2322: Type 'null' is not assignable to type 'string | undefined'.
+src/presentation/context/ProjectContext.tsx(23,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/context/ProjectContext.tsx(25,31): error TS6133: 'doc' is declared but its value is never read.
+src/presentation/context/ProjectContext.tsx(25,36): error TS6133: 'getDoc' is declared but its value is never read.
+src/presentation/context/ProjectContext.tsx(28,1): error TS6192: All imports in import declaration are unused.
+src/presentation/context/ToastContext.tsx(31,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/hooks/useUseCase.ts(36,28): error TS6133: 'DI_TYPES' is declared but its value is never read.
+src/presentation/pages/AuditLogPage.tsx(25,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/pages/AuditLogPage.tsx(79,49): error TS2344: Type 'AuditLogParams' does not satisfy the constraint 'string | Record<string, string | undefined>'.
+  Type 'AuditLogParams' is not assignable to type 'Record<string, string | undefined>'.
+    Index signature for type 'string' is missing in type 'AuditLogParams'.
+src/presentation/pages/AuditLogPage.tsx(109,41): error TS2339: Property 'getAuditLogsForResource' does not exist on type 'typeof AuditService'.
+src/presentation/pages/ContentDetailPage.tsx(26,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/pages/ContentDetailPage.tsx(80,49): error TS2344: Type 'ContentDetailParams' does not satisfy the constraint 'string | Record<string, string | undefined>'.
+  Type 'ContentDetailParams' is not assignable to type 'Record<string, string | undefined>'.
+    Index signature for type 'string' is missing in type 'ContentDetailParams'.
+src/presentation/pages/IntuitiveSchemaBuilderPage.tsx(95,26): error TS6133: 'setCollectionIcon' is declared but its value is never read.
+src/presentation/pages/LandingPage.tsx(19,20): error TS6133: 'useEffect' is declared but its value is never read.
+src/presentation/pages/LandingPage.tsx(24,1): error TS6133: 'HooranLogo' is declared but its value is never read.
+src/presentation/pages/LandingPage.tsx(26,45): error TS6133: 'Waves' is declared but its value is never read.
+src/presentation/pages/ProjectAuditLogsPage.tsx(123,11): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/presentation/pages/ProjectUsersPage.tsx(95,11): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+src/presentation/pages/SchemaBuilderPage.tsx(26,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/pages/SchemaListPage.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/pages/SchemaListPage.tsx(183,64): error TS2339: Property 'projectName' does not exist on type 'Project'.
+src/presentation/pages/SchemaViewPage.tsx(25,8): error TS6133: 'React' is declared but its value is never read.
+src/presentation/pages/SchemaViewPage.tsx(136,7): error TS2353: Object literal may only specify known properties, and 'email' does not exist in type 'Record<SchemaFieldType, FieldType>'.
+src/presentation/pages/SchemaViewPage.tsx(262,9): error TS6133: 'handleCollectionIdChange' is declared but its value is never read.
+src/presentation/pages/SuperUsersPage.tsx(77,9): error TS6133: 'navigate' is declared but its value is never read.

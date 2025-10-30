@@ -11,7 +11,6 @@
 import {
   getDoc,
   getDocs,
-  setDoc,
   updateDoc,
   deleteDoc,
   addDoc,
@@ -31,7 +30,7 @@ import {
   COLLECTIONS,
 } from './utils'
 
-import type { ContentEntry, Schema, AuditLogEntry } from './types'
+import type { ContentEntry, Schema } from './types'
 
 /**
  * Example 1: Fetch a single content entry
