@@ -116,8 +116,8 @@ export function CollapsibleTopBar() {
 
   return (
     <div className="relative">
-      {/* Toggle Button - Fixed at top, beside sidebar */}
-      <div className="fixed top-4 left-[252px] lg:left-[268px] z-50">
+      {/* Toggle Button - Fixed at top center */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
         <Button
           onClick={toggleVisibility}
           size="sm"
