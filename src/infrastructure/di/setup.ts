@@ -95,10 +95,16 @@ export function initializeDependencies(): void {
       auditRepo
     )
 
+    // Media management needs to be created first as schema management depends on it
+    const mediaManagementUseCase = new MediaManagementUseCase(
+      mediaRepo
+    )
+
     const schemaManagementUseCase = new SchemaManagementUseCase(
       schemaRepo,
       contentRepo,
-      auditRepo
+      auditRepo,
+      mediaManagementUseCase
     )
 
     const authUseCase = new AuthUseCase(
@@ -135,10 +141,6 @@ export function initializeDependencies(): void {
 
     const auditLoggingUseCase = new AuditLoggingUseCase(
       auditLogRepo
-    )
-
-    const mediaManagementUseCase = new MediaManagementUseCase(
-      mediaRepo
     )
 
     DIContainer.register(DI_TYPES.ContentManagementUseCase, contentManagementUseCase)

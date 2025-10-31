@@ -16,7 +16,7 @@
  */
 
 import React, { useState, useRef } from 'react'
-import { Upload, X, Image, Video, FileText } from 'lucide-react'
+import { Upload, X, Image, Video, FileText, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export interface StagedFile {
   file: File
@@ -25,6 +25,9 @@ export interface StagedFile {
   size: number
   type: string
   id: string // Unique ID for tracking
+  uploadProgress?: number // 0-100 for progress tracking
+  uploadStatus?: 'pending' | 'uploading' | 'uploaded' | 'error' // Upload state
+  error?: string // Error message if upload failed
 }
 
 interface StagedMultipleMediaUploadProps {
@@ -338,23 +341,72 @@ export function StagedMultipleMediaUpload({
               >
                 {/* Preview for images */}
                 {stagedFile.preview && layout === 'grid' && (
-                  <div className="mb-2">
+                  <div className="mb-2 relative">
                     <img
                       src={stagedFile.preview}
                       alt={stagedFile.name}
-                      className="w-full h-32 object-cover rounded"
+                      className={`w-full h-32 object-cover rounded ${
+                        stagedFile.uploadStatus === 'uploading' ? 'opacity-50' : ''
+                      }`}
                     />
+                    {/* Upload overlay with percentage */}
+                    {stagedFile.uploadStatus === 'uploading' && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 rounded">
+                        <div className="relative">
+                          {/* Circular progress background */}
+                          <svg className="w-16 h-16 transform -rotate-90">
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke="rgba(255, 255, 255, 0.2)"
+                              strokeWidth="4"
+                              fill="none"
+                            />
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke="#20B2AA"
+                              strokeWidth="4"
+                              fill="none"
+                              strokeDasharray={`${2 * Math.PI * 28}`}
+                              strokeDashoffset={`${2 * Math.PI * 28 * (1 - (stagedFile.uploadProgress || 0) / 100)}`}
+                              strokeLinecap="round"
+                              className="transition-all duration-300"
+                            />
+                          </svg>
+                          {/* Percentage text */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-white text-lg font-bold">
+                              {stagedFile.uploadProgress || 0}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* File Info */}
                 <div className="flex items-start gap-2">
                   {layout === 'list' && stagedFile.preview && (
-                    <img
-                      src={stagedFile.preview}
-                      alt={stagedFile.name}
-                      className="w-12 h-12 object-cover rounded"
-                    />
+                    <div className="relative w-12 h-12 flex-shrink-0">
+                      <img
+                        src={stagedFile.preview}
+                        alt={stagedFile.name}
+                        className={`w-full h-full object-cover rounded ${
+                          stagedFile.uploadStatus === 'uploading' ? 'opacity-50' : ''
+                        }`}
+                      />
+                      {stagedFile.uploadStatus === 'uploading' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded">
+                          <span className="text-white text-xs font-bold">
+                            {stagedFile.uploadProgress || 0}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {(!stagedFile.preview || layout === 'grid') && (
                     <div className="flex-shrink-0">{renderIcon(stagedFile.type)}</div>
@@ -365,9 +417,31 @@ export function StagedMultipleMediaUpload({
                       {stagedFile.name}
                     </p>
                     <p className="text-xs text-gray-500">{formatSize(stagedFile.size)}</p>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 mt-1">
-                      Staged
-                    </span>
+
+                    {/* Status Badge */}
+                    {(!stagedFile.uploadStatus || stagedFile.uploadStatus === 'pending') && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800 mt-1">
+                        Staged
+                      </span>
+                    )}
+                    {stagedFile.uploadStatus === 'uploading' && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Uploading...
+                      </span>
+                    )}
+                    {stagedFile.uploadStatus === 'uploaded' && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        Uploaded
+                      </span>
+                    )}
+                    {stagedFile.uploadStatus === 'error' && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 mt-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Error
+                      </span>
+                    )}
                   </div>
 
                   <button
@@ -375,13 +449,20 @@ export function StagedMultipleMediaUpload({
                       e.stopPropagation()
                       handleRemove(stagedFile.id)
                     }}
-                    disabled={disabled}
+                    disabled={disabled || stagedFile.uploadStatus === 'uploading'}
                     className="flex-shrink-0 p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
                     title="Remove file"
                   >
                     <X className="w-4 h-4 text-gray-500" />
                   </button>
                 </div>
+
+                {/* Error Message */}
+                {stagedFile.uploadStatus === 'error' && stagedFile.error && (
+                  <div className="mt-2 text-xs text-red-600">
+                    {stagedFile.error}
+                  </div>
+                )}
               </div>
             ))}
           </div>

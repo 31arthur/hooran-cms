@@ -12,9 +12,9 @@
  * - Handles Firebase-specific errors
  * - Is completely replaceable without affecting business logic
  *
- * **Firestore Structure:**
- * projects/{projectId}/schemas/{schemaId}
- *   - project_id: string (multi-tenancy enforcement)
+ * **NEW Firestore Structure (Root-Level):**
+ * schemas/{schemaId}
+ *   - project_id: string (multi-tenancy enforcement - which project owns this schema)
  *   - name: string
  *   - description: string
  *   - fields: SchemaField[]
@@ -22,6 +22,9 @@
  *   - is_system: boolean
  *   - created_at: Timestamp
  *   - updated_at: Timestamp
+ *
+ * projects/{projectId}
+ *   - schemas: string[] (array of schema IDs belonging to this project)
  */
 
 import {
@@ -33,16 +36,16 @@ import {
   updateDoc,
   deleteDoc,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore'
 import { db } from '@/firebase/config'
 import {
-  getProjectScopedCollection,
-  getProjectScopedDocRef,
   validateProjectId,
-  COLLECTIONS,
 } from '@/firebase/utils'
 import type { ISchemaRepository } from '@/domain/repositories'
 import type {
@@ -75,6 +78,7 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
 
   /**
    * Get all schemas for a project
+   * NEW: Fetches from root-level schemas collection filtered by project_id
    *
    * @param projectId - The project ID
    * @returns Promise<SchemaDefinition[]> - Array of schemas
@@ -85,8 +89,13 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
       validateProjectId(projectId)
       console.log(`📋 FirebaseSchemaRepository: Fetching schemas for project ${projectId}`)
 
-      const schemasCollection = getProjectScopedCollection(COLLECTIONS.SCHEMAS, projectId)
-      const schemasQuery = query(schemasCollection, orderBy('created_at', 'desc'))
+      // Query root-level schemas collection filtered by project_id
+      const schemasCollection = collection(db, 'schemas')
+      const schemasQuery = query(
+        schemasCollection,
+        where('project_id', '==', projectId),
+        orderBy('created_at', 'desc')
+      )
       const querySnapshot = await getDocs(schemasQuery)
 
       const schemas: SchemaDefinition[] = []
@@ -107,8 +116,9 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
 
   /**
    * Get a schema by ID
+   * NEW: Fetches from root-level schemas collection
    *
-   * @param projectId - The project ID
+   * @param projectId - The project ID (used for validation)
    * @param schemaId - The schema ID
    * @returns Promise<SchemaDefinition | null> - The schema or null if not found
    * @throws Error if Firestore read fails
@@ -118,7 +128,8 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
       validateProjectId(projectId)
       console.log(`📋 FirebaseSchemaRepository: Fetching schema ${schemaId}`)
 
-      const schemaDocRef = getProjectScopedDocRef(COLLECTIONS.SCHEMAS, schemaId, projectId)
+      // Fetch from root-level schemas collection
+      const schemaDocRef = doc(db, 'schemas', schemaId)
       const schemaDocSnap = await getDoc(schemaDocRef)
 
       if (!schemaDocSnap.exists()) {
@@ -126,7 +137,14 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
         return null
       }
 
-      const schema = SchemaAdapter.toEntity(schemaDocSnap.id, schemaDocSnap.data())
+      // Verify schema belongs to the project
+      const schemaData = schemaDocSnap.data()
+      if (schemaData?.project_id !== projectId) {
+        console.log(`⚠️ FirebaseSchemaRepository: Schema ${schemaId} does not belong to project ${projectId}`)
+        return null
+      }
+
+      const schema = SchemaAdapter.toEntity(schemaDocSnap.id, schemaData)
       console.log(`✅ FirebaseSchemaRepository: Fetched schema ${schemaId}`)
       return schema
     } catch (error) {
@@ -199,10 +217,11 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
         throw new Error('Invalid schema data: id, name, and fields are required')
       }
 
-      // Check if schema already exists
-      const existingSchema = await this.getSchemaById(projectId, schemaData.id)
-      if (existingSchema) {
-        throw new Error(`Schema with ID "${schemaData.id}" already exists in this project`)
+      // Check if schema already exists (check globally in root collection)
+      const schemaDocRef = doc(db, 'schemas', schemaData.id)
+      const existingSchemaSnap = await getDoc(schemaDocRef)
+      if (existingSchemaSnap.exists()) {
+        throw new Error(`Schema with ID "${schemaData.id}" already exists`)
       }
 
       // Prepare schema data using adapter
@@ -212,10 +231,31 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
         updated_at: serverTimestamp(),
       }
 
-      // Create schema document
-      const schemaDocRef = getProjectScopedDocRef(COLLECTIONS.SCHEMAS, schemaData.id, projectId)
+      // Create schema document in root-level collection
       await setDoc(schemaDocRef, schemaDocument)
-      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaData.id} created`)
+      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaData.id} created in root collection`)
+
+      // Create table metadata document in tables collection
+      // This ensures the table structure is visible in Firestore immediately
+      const tableMetadataRef = doc(db, 'tables', schemaData.id)
+      await setDoc(tableMetadataRef, {
+        schemaId: schemaData.id,
+        projectId: projectId,
+        tableName: schemaData.name,
+        createdAt: serverTimestamp(),
+        createdBy: userId,
+        isActive: true,
+      })
+      console.log(`✅ FirebaseSchemaRepository: Table metadata created for ${schemaData.id}`)
+
+      // Add schema ID to project's schemas and tables arrays
+      const projectDocRef = doc(db, 'projects', projectId)
+      await updateDoc(projectDocRef, {
+        schemas: arrayUnion(schemaData.id),
+        tables: arrayUnion(schemaData.id),  // Also add to tables array
+        updated_at: serverTimestamp(),
+      })
+      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaData.id} added to project arrays`)
 
       // Audit logging
       try {
@@ -296,8 +336,8 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
         updated_at: serverTimestamp(),
       }
 
-      // Update Firestore
-      const schemaDocRef = getProjectScopedDocRef(COLLECTIONS.SCHEMAS, schemaId, projectId)
+      // Update Firestore (root-level collection)
+      const schemaDocRef = doc(db, 'schemas', schemaId)
       await updateDoc(schemaDocRef, updateData)
       console.log(`✅ FirebaseSchemaRepository: Schema ${schemaId} updated`)
 
@@ -360,9 +400,9 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
       }
 
       // CRITICAL: Check for existing content entries
-      const projectDocRef = doc(db, 'projects', projectId)
-      const dataCollectionRef = collection(projectDocRef, 'data', collectionId)
-      const contentQuery = query(dataCollectionRef, limit(1))
+      // NEW Path: tables/{collectionId}/entries (root-level)
+      const tablesCollectionRef = collection(db, 'tables', collectionId, 'entries')
+      const contentQuery = query(tablesCollectionRef, limit(1))
       const contentSnapshot = await getDocs(contentQuery)
 
       if (!contentSnapshot.empty) {
@@ -372,10 +412,28 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
         )
       }
 
-      // Delete schema document
-      const schemaDocRef = getProjectScopedDocRef(COLLECTIONS.SCHEMAS, schemaId, projectId)
+      // Delete schema document from root-level collection
+      const schemaDocRef = doc(db, 'schemas', schemaId)
       await deleteDoc(schemaDocRef)
-      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaId} deleted`)
+      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaId} deleted from root collection`)
+
+      // Delete table metadata document
+      const tableMetadataRef = doc(db, 'tables', schemaId)
+      try {
+        await deleteDoc(tableMetadataRef)
+        console.log(`✅ FirebaseSchemaRepository: Table metadata deleted for ${schemaId}`)
+      } catch (tableDeleteError) {
+        console.warn(`⚠️ FirebaseSchemaRepository: Table metadata not found or already deleted for ${schemaId}`)
+      }
+
+      // Remove schema ID from project's schemas and tables arrays
+      const projectDocRef = doc(db, 'projects', projectId)
+      await updateDoc(projectDocRef, {
+        schemas: arrayRemove(schemaId),
+        tables: arrayRemove(schemaId),
+        updated_at: serverTimestamp(),
+      })
+      console.log(`✅ FirebaseSchemaRepository: Schema ${schemaId} removed from project arrays`)
 
       // Audit logging
       try {
@@ -416,6 +474,50 @@ export class FirebaseSchemaRepository implements ISchemaRepository {
       return schema !== null
     } catch (error) {
       console.error('❌ FirebaseSchemaRepository: Error checking schema existence:', error)
+      return false
+    }
+  }
+
+  /**
+   * Check if a schema name already exists in the project
+   * NEW: For real-time duplicate name checking
+   *
+   * @param projectId - The project ID
+   * @param schemaName - The schema name to check
+   * @param excludeSchemaId - Optional schema ID to exclude (for edit mode)
+   * @returns Promise<boolean> - True if name exists
+   */
+  async schemaNameExists(
+    projectId: string,
+    schemaName: string,
+    excludeSchemaId?: string
+  ): Promise<boolean> {
+    try {
+      validateProjectId(projectId)
+      console.log(`🔍 FirebaseSchemaRepository: Checking if schema name "${schemaName}" exists`)
+
+      // Query root-level schemas collection filtered by project_id and name
+      const schemasCollection = collection(db, 'schemas')
+      const nameQuery = query(
+        schemasCollection,
+        where('project_id', '==', projectId),
+        where('name', '==', schemaName),
+        limit(1)
+      )
+      const querySnapshot = await getDocs(nameQuery)
+
+      // If found, check if it's not the excluded schema
+      if (!querySnapshot.empty) {
+        if (excludeSchemaId) {
+          const foundSchema = querySnapshot.docs[0]
+          return foundSchema.id !== excludeSchemaId
+        }
+        return true
+      }
+
+      return false
+    } catch (error) {
+      console.error('❌ FirebaseSchemaRepository: Error checking schema name:', error)
       return false
     }
   }

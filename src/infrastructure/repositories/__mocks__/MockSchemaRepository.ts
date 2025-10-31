@@ -139,6 +139,29 @@ export class MockSchemaRepository implements ISchemaRepository {
     return schema !== null
   }
 
+  async schemaNameExists(
+    projectId: string,
+    schemaName: string,
+    excludeSchemaId?: string
+  ): Promise<boolean> {
+    const projectSchemas = this.schemas.get(projectId)
+    if (!projectSchemas) {
+      return false
+    }
+
+    for (const schema of projectSchemas.values()) {
+      if (schema.name === schemaName) {
+        // If excluding a schema ID, check if it's not the same
+        if (excludeSchemaId && schema.id === excludeSchemaId) {
+          continue
+        }
+        return true
+      }
+    }
+
+    return false
+  }
+
   // Test helper methods
   clear(): void {
     this.schemas.clear()

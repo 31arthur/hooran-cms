@@ -210,6 +210,7 @@ export interface IUserManagementUseCase {
    * Business Rules:
    * - Only Super users can change roles
    * - Cannot change own role
+   * - Super user role cannot be changed (permanent)
    * - Role changes may affect project access
    * - Creates audit log entry
    *
@@ -222,6 +223,27 @@ export interface IUserManagementUseCase {
   updateUserRole(
     userId: string,
     newRole: 'Super' | 'Admin' | 'User',
+    requestingUserId: string
+  ): Promise<void>
+
+  /**
+   * Update user profile
+   *
+   * Business Rules:
+   * - Only Super users can update other users' profiles
+   * - Email cannot be changed (security constraint)
+   * - Display name can be updated
+   * - Creates audit log entry
+   *
+   * @param userId - The user ID to update
+   * @param updates - Profile updates (displayName only, email excluded)
+   * @param requestingUserId - The Super user making the change
+   * @returns Promise<void>
+   * @throws Error if validation fails or user lacks permission
+   */
+  updateUserProfile(
+    userId: string,
+    updates: { displayName?: string },
     requestingUserId: string
   ): Promise<void>
 
@@ -291,6 +313,23 @@ export interface IUserManagementUseCase {
     displayName?: string,
     photoURL?: string | null
   ): Promise<'Super' | 'Admin' | 'User'>
+
+  /**
+   * Delete user
+   *
+   * Business Rules:
+   * - Only Super users can delete other users
+   * - Cannot delete your own account
+   * - Deletes Firestore user document
+   * - Attempts to delete Firebase Auth account (limited by client-side constraints)
+   * - Creates audit log entry
+   *
+   * @param userId - The user ID to delete
+   * @param requestingUserId - The Super user performing the deletion
+   * @returns Promise<void>
+   * @throws Error if validation fails or user lacks permission
+   */
+  deleteUser(userId: string, requestingUserId: string): Promise<void>
 
   /**
    * Get user data by ID

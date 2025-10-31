@@ -20,6 +20,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/presentation/context/AuthContext'
 import { useProject } from '@/presentation/context/ProjectContext'
 import { useRoleCheck } from '@/presentation/hooks/useRoleCheck'
+import { useToast } from '@/presentation/context/ToastContext'
 import { DIContainer, DI_TYPES } from '@/domain/di'
 import {
   LayoutDashboard,
@@ -37,21 +38,41 @@ import {
   History,
   Shield,
   Table as TableIcon,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { CollectionReference } from '@/domain/entities/ProjectRecords'
+import type { SchemaDefinition } from '@/domain/entities/SchemaDefinition'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/presentation/components/ui/dialog'
+import { Button } from '@/presentation/components/ui/button'
+import { Input } from '@/presentation/components/ui/input'
+import { Label } from '@/presentation/components/ui/label'
 
 export function Sidebar() {
-  const { userRole: _userRole } = useAuth()
+  const { userRole: _userRole, currentUser } = useAuth()
   const { isSuper } = useRoleCheck()
   const { selectedProject } = useProject()
+  const { showToast } = useToast()
 
-  const [tables, setTables] = useState<CollectionReference[]>([])
+  const [tables, setTables] = useState<SchemaDefinition[]>([])
   const [isLoadingTables, setIsLoadingTables] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
+  // Delete dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [tableToDelete, setTableToDelete] = useState<SchemaDefinition | null>(null)
+  const [deleteConfirmName, setDeleteConfirmName] = useState('')
+  const [isDeleting, setIsDeleting] = useState(false)
+
   /**
-   * Load tables from Firebase ProjectRecords
+   * Load tables (schemas) from project's schemas array
+   * NEW: Fetches from root-level schemas collection using project.schemas array
    */
   useEffect(() => {
     const loadTables = async () => {
@@ -62,12 +83,17 @@ export function Sidebar() {
 
       setIsLoadingTables(true)
       try {
-        const projectRecordsRepo = DIContainer.resolve<any>(DI_TYPES.ProjectRecordsRepository)
-        const collections = await projectRecordsRepo.getCollectionsForProject(selectedProject.projectId)
-        setTables(collections.filter((c: CollectionReference) => c.isActive))
-        console.log(`✅ Sidebar: Loaded ${collections.length} tables for project ${selectedProject.projectId}`)
+        // Fetch schemas using SchemaRepository
+        const schemaRepo = DIContainer.resolve<any>(DI_TYPES.SchemaRepository)
+        const schemas = await schemaRepo.getSchemasForProject(selectedProject.projectId)
+
+        // Filter out system schemas if needed
+        const userSchemas = schemas.filter((s: SchemaDefinition) => !s.isSystem)
+
+        setTables(userSchemas)
+        console.log(`✅ Sidebar: Loaded ${userSchemas.length} schemas for project ${selectedProject.projectId}`)
       } catch (error) {
-        console.error('❌ Sidebar: Failed to load tables', error)
+        console.error('❌ Sidebar: Failed to load schemas', error)
         setTables([])
       } finally {
         setIsLoadingTables(false)
@@ -116,6 +142,77 @@ export function Sidebar() {
     }
     const IconComponent = iconMap[iconName || 'table'] || TableIcon
     return <IconComponent className="h-4 w-4" />
+  }
+
+  /**
+   * Handle delete icon click
+   */
+  const handleDeleteClick = (e: React.MouseEvent, table: SchemaDefinition) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setTableToDelete(table)
+    setDeleteConfirmName('')
+    setIsDeleteDialogOpen(true)
+  }
+
+  /**
+   * Handle table deletion
+   */
+  const handleDeleteTable = async () => {
+    if (!tableToDelete || !selectedProject || !currentUser) return
+
+    setIsDeleting(true)
+
+    try {
+      console.log(`🗑️ Sidebar: Deleting schema/table ${tableToDelete.name}`)
+
+      // Get schema management use case and delete the schema (which will also delete all content)
+      const schemaManagementUseCase = DIContainer.resolve<any>(DI_TYPES.SchemaManagementUseCase)
+      await schemaManagementUseCase.deleteSchema(
+        selectedProject.projectId,
+        tableToDelete.id,
+        currentUser.uid
+      )
+
+      // Remove from local state
+      setTables(tables.filter(t => t.id !== tableToDelete.id))
+
+      // Trigger refresh
+      setRefreshTrigger(prev => prev + 1)
+
+      // Close dialog
+      setIsDeleteDialogOpen(false)
+      setTableToDelete(null)
+      setDeleteConfirmName('')
+
+      showToast({
+        title: 'Table Deleted',
+        description: `"${tableToDelete.name}" and all its content have been permanently deleted`,
+        variant: 'default'
+      })
+
+      console.log(`✅ Sidebar: Schema/table deleted successfully`)
+    } catch (err: any) {
+      console.error('❌ Sidebar: Failed to delete table', err)
+      showToast({
+        title: 'Delete Failed',
+        description: err.message || 'Failed to delete table',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  /**
+   * Handle dialog close
+   */
+  const handleCloseDialog = () => {
+    if (!isDeleting) {
+      setIsDeleteDialogOpen(false)
+      setTableToDelete(null)
+      setDeleteConfirmName('')
+    }
   }
 
   return (
@@ -304,30 +401,38 @@ export function Sidebar() {
             ) : tables.length > 0 ? (
               <div className="space-y-1">
                 {tables.map((table) => (
-                  <NavLink
-                    key={table.schemaId}
-                    to={`/app/tables/${table.schemaId}`}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-[#20B2AA]/10 text-[#20B2AA]'
-                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <span className={cn(isActive && 'text-[#20B2AA]')}>
-                          {getIcon(table.icon || 'table')}
-                        </span>
-                        <span className="flex-1 truncate">{table.collectionName}</span>
-                        {table.entryCount !== undefined && (
-                          <span className="text-xs text-gray-400">{table.entryCount}</span>
-                        )}
-                      </>
-                    )}
-                  </NavLink>
+                  <div key={table.id} className="relative group">
+                    <NavLink
+                      to={`/app/tables/${table.id}`}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-[#20B2AA]/10 text-[#20B2AA]'
+                            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span className={cn(isActive && 'text-[#20B2AA]')}>
+                            {getIcon('table')}
+                          </span>
+                          <span className="flex-1 truncate">{table.name}</span>
+                          {/* Delete icon - only visible on hover and for Super users */}
+                          {isSuper && (
+                            <button
+                              onClick={(e) => handleDeleteClick(e, table)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-100 rounded"
+                              title="Delete table"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -356,6 +461,64 @@ export function Sidebar() {
           v1.0.0
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={handleCloseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Delete Table</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. This will permanently delete the table "{tableToDelete?.name}" and all of its content.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="confirm-name">
+                To confirm deletion, type the table name exactly as shown: <span className="font-bold text-red-600">{tableToDelete?.name}</span>
+              </Label>
+              <Input
+                id="confirm-name"
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder="Enter table name"
+                disabled={isDeleting}
+              />
+            </div>
+
+            {tableToDelete && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg space-y-2">
+                <p className="text-sm font-semibold text-red-900">
+                  What will be deleted:
+                </p>
+                <ul className="text-sm text-red-700 space-y-1 list-disc list-inside">
+                  <li>Table schema definition ({tableToDelete.fields.length} fields)</li>
+                  <li>All content entries in this table</li>
+                  <li>All associated media files</li>
+                  <li>All associated metadata</li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCloseDialog}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteTable}
+              disabled={isDeleting || deleteConfirmName !== tableToDelete?.name}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Table'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   )
 }

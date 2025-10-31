@@ -31,7 +31,6 @@ import type {
   GetContentEntriesOptions,
   SchemaDefinition,
 } from '@/domain/entities'
-import type { ContentListDTO } from '@/domain/dtos/ContentDTO'
 
 /**
  * Content Entry with Schema
@@ -96,14 +95,14 @@ export interface IContentManagementUseCase {
    * - User must have access to the project
    * - Filters results based on user role and permissions
    * - Supports search and filtering
-   * - Returns simplified DTOs for list views
+   * - Returns full ContentEntry entities with data field
    *
    * @param projectId - The project ID
    * @param collectionId - The collection/schema ID
    * @param options - Query options (limit, search, filters)
    * @param userId - The current user's ID
    * @param userRole - The current user's role
-   * @returns Promise<ContentListDTO[]> - List of content entries as DTOs
+   * @returns Promise<ContentEntry[]> - List of full content entries
    * @throws Error if user lacks access
    */
   getContentEntries(
@@ -112,7 +111,7 @@ export interface IContentManagementUseCase {
     options: GetContentEntriesOptions,
     userId: string,
     userRole: string
-  ): Promise<ContentListDTO[]>
+  ): Promise<ContentEntry[]>
 
   /**
    * Get published content only

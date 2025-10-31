@@ -20,6 +20,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/presentation/context/AuthContext'
 import { useCMSServices } from '@/presentation/hooks/useCMSServices'
+import { useToast } from '@/presentation/context/ToastContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/presentation/components/ui/card'
 import { Button } from '@/presentation/components/ui/button'
 import { Input } from '@/presentation/components/ui/input'
@@ -76,6 +77,7 @@ export function SuperUsersPage() {
 
   const { currentUser } = useAuth()
   const cmsServices = useCMSServices()
+  const { showToast } = useToast()
 
   const [users, setUsers] = useState<SystemUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -85,7 +87,7 @@ export function SuperUsersPage() {
   // Edit dialog state
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null)
-  const [editForm, setEditForm] = useState({ displayName: '', email: '' })
+  const [editForm, setEditForm] = useState({ displayName: '' })
   const [isSavingEdit, setIsSavingEdit] = useState(false)
 
   /**
@@ -124,8 +126,42 @@ export function SuperUsersPage() {
    * Handle role change
    */
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
-    if (userId === currentUser?.uid) {
-      alert('You cannot change your own role')
+    if (!currentUser) {
+      showToast({
+        title: 'Authentication Required',
+        description: 'You must be logged in to change user roles',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (userId === currentUser.uid) {
+      showToast({
+        title: 'Action Not Allowed',
+        description: 'You cannot change your own role',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // Find the target user
+    const targetUser = users.find(u => u.uid === userId)
+    if (!targetUser) {
+      showToast({
+        title: 'User Not Found',
+        description: 'The selected user could not be found',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // Check if trying to change a Super user's role
+    if (targetUser.role === 'Super') {
+      showToast({
+        title: 'Cannot Modify Super User',
+        description: 'Super user role is permanent and cannot be changed',
+        variant: 'destructive'
+      })
       return
     }
 
@@ -134,17 +170,28 @@ export function SuperUsersPage() {
     try {
       console.log(`👥 SuperUsersPage: Updating user ${userId} role to ${newRole}`)
 
-      // Update user role
-      // TODO: Implement updateUserRole method in UserManagementUseCase
-      // await cmsServices.userManagement.updateUserRole(userId, newRole, currentUser!.uid)
+      // Update user role via use case
+      await cmsServices.userManagement.updateUserRole(userId, newRole, currentUser.uid)
 
       // Update local state
-      setUsers(users.map(u => u.uid === userId ? { ...u, role: newRole } : u))
+      setUsers(users.map(u => u.uid === userId ? { ...u, role: newRole, updatedAt: new Date() } : u))
 
       console.log('✅ SuperUsersPage: Role updated successfully')
+      showToast({
+        title: 'Role Updated Successfully',
+        description: `User role has been changed to ${newRole}`,
+        variant: 'default'
+      })
     } catch (err: any) {
       console.error('❌ SuperUsersPage: Failed to update role', err)
-      alert('Failed to update role: ' + err.message)
+      showToast({
+        title: 'Failed to Update Role',
+        description: err.message || 'An unexpected error occurred',
+        variant: 'destructive'
+      })
+
+      // Revert the select dropdown back to original value on error
+      setUsers([...users])
     } finally {
       setUpdatingUserId(null)
     }
@@ -160,7 +207,6 @@ export function SuperUsersPage() {
     setEditingUser(user)
     setEditForm({
       displayName: user.displayName || user.name || '',
-      email: user.email,
     })
     setIsEditDialogOpen(true)
   }
@@ -169,43 +215,52 @@ export function SuperUsersPage() {
    * Handle save user edit
    */
   const handleSaveEdit = async () => {
-    if (!editingUser) return
+    if (!editingUser || !currentUser) return
 
     // Validation
     if (!editForm.displayName.trim()) {
-      alert('Display name is required')
-      return
-    }
-
-    if (!editForm.email.trim() || !editForm.email.includes('@')) {
-      alert('Valid email is required')
+      showToast({
+        title: 'Validation Error',
+        description: 'Display name is required',
+        variant: 'destructive'
+      })
       return
     }
 
     setIsSavingEdit(true)
 
     try {
-      console.log(`👥 SuperUsersPage: Updating user ${editingUser.uid}`)
+      console.log(`👥 SuperUsersPage: Updating user ${editingUser.uid} display name`)
 
-      // TODO: Implement updateUser method in UserManagementUseCase
-      // await cmsServices.userManagement.updateUser(editingUser.uid, {
-      //   displayName: editForm.displayName,
-      //   email: editForm.email,
-      // }, currentUser!.uid)
+      // Update user profile via use case
+      await cmsServices.userManagement.updateUserProfile(
+        editingUser.uid,
+        { displayName: editForm.displayName },
+        currentUser.uid
+      )
 
       // Update local state
       setUsers(users.map(u =>
         u.uid === editingUser.uid
-          ? { ...u, displayName: editForm.displayName, email: editForm.email, updatedAt: new Date() }
+          ? { ...u, displayName: editForm.displayName, updatedAt: new Date() }
           : u
       ))
 
       console.log('✅ SuperUsersPage: User updated successfully')
+      showToast({
+        title: 'User Updated',
+        description: 'User display name has been updated successfully',
+        variant: 'default'
+      })
       setIsEditDialogOpen(false)
       setEditingUser(null)
     } catch (err: any) {
       console.error('❌ SuperUsersPage: Failed to update user', err)
-      alert('Failed to update user: ' + err.message)
+      showToast({
+        title: 'Update Failed',
+        description: err.message || 'Failed to update user information',
+        variant: 'destructive'
+      })
     } finally {
       setIsSavingEdit(false)
     }
@@ -217,36 +272,74 @@ export function SuperUsersPage() {
   const handleCancelEdit = () => {
     setIsEditDialogOpen(false)
     setEditingUser(null)
-    setEditForm({ displayName: '', email: '' })
+    setEditForm({ displayName: '' })
   }
 
   /**
    * Handle delete user
    */
   const handleDeleteUser = async (userId: string) => {
-    if (userId === currentUser?.uid) {
-      alert('You cannot delete your own account')
+    if (!currentUser) {
+      showToast({
+        title: 'Authentication Required',
+        description: 'You must be logged in to delete users',
+        variant: 'destructive'
+      })
       return
     }
 
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+    if (userId === currentUser.uid) {
+      showToast({
+        title: 'Action Not Allowed',
+        description: 'You cannot delete your own account',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    const userToDelete = users.find(u => u.uid === userId)
+    if (!userToDelete) {
+      showToast({
+        title: 'User Not Found',
+        description: 'The selected user could not be found',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    // Double confirmation for destructive action
+    if (!confirm(
+      `Are you sure you want to delete ${userToDelete.displayName || userToDelete.email}?\n\n` +
+      `This will remove:\n` +
+      `- User's Firestore document\n` +
+      `- User's Firebase Auth account (when possible)\n\n` +
+      `This action cannot be undone.`
+    )) {
       return
     }
 
     try {
       console.log('👥 SuperUsersPage: Deleting user', userId)
 
-      // TODO: Implement delete functionality
-      // await cmsServices.userManagement.deleteUser(userId, currentUser!.uid)
+      // Delete user via use case (deletes both Firestore and Auth)
+      await cmsServices.userManagement.deleteUser(userId, currentUser.uid)
 
       // Remove from local state
       setUsers(users.filter(u => u.uid !== userId))
 
       console.log('✅ SuperUsersPage: User deleted successfully')
-      alert('User deleted successfully')
+      showToast({
+        title: 'User Deleted',
+        description: `${userToDelete.displayName || userToDelete.email} has been successfully removed from the system`,
+        variant: 'default'
+      })
     } catch (err: any) {
       console.error('❌ SuperUsersPage: Failed to delete user', err)
-      alert('Failed to delete user: ' + err.message)
+      showToast({
+        title: 'Delete Failed',
+        description: err.message || 'Failed to delete user',
+        variant: 'destructive'
+      })
     }
   }
 
@@ -337,7 +430,11 @@ export function SuperUsersPage() {
             </div>
 
             <Button
-              onClick={() => alert('Add user functionality coming soon')}
+              onClick={() => showToast({
+                title: 'Coming Soon',
+                description: 'Add user functionality will be available in a future update',
+                variant: 'default'
+              })}
               className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white"
             >
               <UserPlus className="mr-2 h-4 w-4" />
@@ -416,7 +513,7 @@ export function SuperUsersPage() {
                           <Select
                             value={user.role}
                             onValueChange={(value) => handleRoleChange(user.uid, value as UserRole)}
-                            disabled={updatingUserId === user.uid || user.uid === currentUser?.uid}
+                            disabled={updatingUserId === user.uid || user.uid === currentUser?.uid || user.role === 'Super'}
                           >
                             <SelectTrigger className="w-[120px]">
                               <SelectValue>
@@ -501,9 +598,9 @@ export function SuperUsersPage() {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit User</DialogTitle>
+              <DialogTitle>Edit User Display Name</DialogTitle>
               <DialogDescription>
-                Update user information. Email changes will require re-authentication.
+                Update the user's display name. Email addresses cannot be changed for security reasons.
               </DialogDescription>
             </DialogHeader>
 
@@ -513,29 +610,24 @@ export function SuperUsersPage() {
                 <Input
                   id="edit-displayName"
                   value={editForm.displayName}
-                  onChange={(e) => setEditForm({ ...editForm, displayName: e.target.value })}
+                  onChange={(e) => setEditForm({ displayName: e.target.value })}
                   placeholder="Enter display name"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email *</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  placeholder="Enter email"
-                />
-              </div>
-
               {editingUser && (
-                <div className="pt-4 border-t space-y-2">
-                  <div className="text-sm text-slate-600">
-                    <span className="font-medium">User ID:</span> {editingUser.uid}
+                <div className="pt-4 border-t space-y-3">
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-medium text-slate-900 dark:text-white">Email:</span>{' '}
+                    <span className="font-mono">{editingUser.email}</span>
+                    <span className="ml-2 text-xs text-slate-500">(read-only)</span>
                   </div>
-                  <div className="text-sm text-slate-600">
-                    <span className="font-medium">Role:</span>{' '}
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-medium text-slate-900 dark:text-white">User ID:</span>{' '}
+                    <span className="font-mono text-xs">{editingUser.uid}</span>
+                  </div>
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <span className="font-medium text-slate-900 dark:text-white">Role:</span>{' '}
                     <Badge className={getRoleBadgeColor(editingUser.role)}>
                       {editingUser.role}
                     </Badge>
@@ -555,6 +647,7 @@ export function SuperUsersPage() {
               <Button
                 onClick={handleSaveEdit}
                 disabled={isSavingEdit}
+                className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700"
               >
                 {isSavingEdit ? 'Saving...' : 'Save Changes'}
               </Button>

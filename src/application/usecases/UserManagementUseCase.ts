@@ -407,6 +407,11 @@ export class UserManagementUseCase implements IUserManagementUseCase {
       const oldRole = targetUser.role || 'User'
       const oldProjects = targetUser.projects || []
 
+      // Step 4.5: CRITICAL - Super user role cannot be changed
+      if (oldRole === 'Super') {
+        throw new Error('Cannot change role of a Super user. Super user role is permanent.')
+      }
+
       // If no change in role, skip update
       if (oldRole === newRole) {
         console.log('⚠️ UserManagementUseCase: Role unchanged, skipping update')
@@ -647,6 +652,190 @@ export class UserManagementUseCase implements IUserManagementUseCase {
       // On error, default to least privileged role for security
       console.error('🚫 UserManagementUseCase: Defaulting to "User" role due to error')
       return 'User'
+    }
+  }
+
+  /**
+   * Update user profile
+   *
+   * Updates user profile information (display name only).
+   * Email cannot be changed for security reasons.
+   *
+   * CRITICAL BUSINESS RULES:
+   * 1. Only Super users can update other users' profiles
+   * 2. Email changes are NOT allowed (security constraint)
+   * 3. Display name can be updated
+   * 4. Creates audit log entry
+   */
+  async updateUserProfile(
+    userId: string,
+    updates: { displayName?: string },
+    requestingUserId: string
+  ): Promise<void> {
+    try {
+      console.log('👤 UserManagementUseCase: Updating user profile')
+      console.log(`   Target User: ${userId}`)
+      console.log(`   Updates:`, updates)
+      console.log(`   Acting User: ${requestingUserId}`)
+
+      // Step 1: Validate inputs
+      if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+        throw new Error('Invalid target user ID: User ID must be a non-empty string')
+      }
+
+      if (!requestingUserId || typeof requestingUserId !== 'string' || requestingUserId.trim() === '') {
+        throw new Error('Invalid acting user ID: User ID must be a non-empty string')
+      }
+
+      if (!updates || typeof updates !== 'object') {
+        throw new Error('Invalid updates: Updates must be an object')
+      }
+
+      // Step 2: Verify requesting user is Super
+      const requestingUser = await this.userRepository.getUserById(requestingUserId)
+      if (!requestingUser || requestingUser.role !== 'Super') {
+        throw new Error('Only Super users can update user profiles')
+      }
+
+      // Step 3: Fetch target user to verify existence
+      const targetUser = await this.userRepository.getUserById(userId)
+      if (!targetUser) {
+        throw new Error(`User not found: ${userId}`)
+      }
+
+      // Step 4: Validate display name if provided
+      if (updates.displayName !== undefined) {
+        if (typeof updates.displayName !== 'string' || updates.displayName.trim() === '') {
+          throw new Error('Display name must be a non-empty string')
+        }
+      }
+
+      const oldDisplayName = targetUser.displayName || targetUser.name || ''
+
+      // Step 5: Update user profile via repository
+      await this.userRepository.updateUserProfile(userId, {
+        displayName: updates.displayName,
+      })
+
+      console.log(`✅ UserManagementUseCase: User profile updated`)
+
+      // Step 6: Create audit log entry
+      try {
+        await this.auditRepository.logAction({
+          projectId: 'system', // System-level action, not project-specific
+          userId: requestingUserId, // Acting user (Super who made the change)
+          action: 'UPDATE',
+          resourceType: 'USER_ROLE', // Using USER_ROLE for user-related updates
+          resourceId: userId,
+          details: {
+            action_type: 'USER_PROFILE_UPDATE',
+            target_user_id: userId,
+            target_user_email: targetUser.email,
+            old_display_name: oldDisplayName,
+            new_display_name: updates.displayName,
+            updated_by: requestingUserId,
+            updated_by_email: requestingUser.email,
+          },
+          timestamp: new Date(),
+        })
+
+        console.log('✅ UserManagementUseCase: Audit log created for profile update')
+      } catch (auditError) {
+        // Audit logging failure should not fail the operation
+        console.error(
+          '❌ UserManagementUseCase: Failed to create audit log (profile update was still successful):',
+          auditError
+        )
+      }
+    } catch (error) {
+      console.error('❌ UserManagementUseCase: Failed to update user profile', error)
+      throw error
+    }
+  }
+
+  /**
+   * Delete user
+   *
+   * Deletes a user from the system, including their Firestore document
+   * and Firebase Auth account (when possible).
+   *
+   * CRITICAL BUSINESS RULES:
+   * 1. Only Super users can delete other users
+   * 2. Cannot delete your own account
+   * 3. Deletes Firestore user document
+   * 4. Attempts to delete Firebase Auth account (limited by client-side constraints)
+   * 5. Creates audit log entry
+   */
+  async deleteUser(userId: string, requestingUserId: string): Promise<void> {
+    try {
+      console.log('🗑️ UserManagementUseCase: Deleting user')
+      console.log(`   Target User: ${userId}`)
+      console.log(`   Acting User: ${requestingUserId}`)
+
+      // Step 1: Validate inputs
+      if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+        throw new Error('Invalid target user ID: User ID must be a non-empty string')
+      }
+
+      if (!requestingUserId || typeof requestingUserId !== 'string' || requestingUserId.trim() === '') {
+        throw new Error('Invalid acting user ID: User ID must be a non-empty string')
+      }
+
+      // Step 2: Verify requesting user is Super
+      const requestingUser = await this.userRepository.getUserById(requestingUserId)
+      if (!requestingUser || requestingUser.role !== 'Super') {
+        throw new Error('Only Super users can delete users')
+      }
+
+      // Step 3: Cannot delete own account
+      if (userId === requestingUserId) {
+        throw new Error('Cannot delete your own account')
+      }
+
+      // Step 4: Fetch target user to verify existence and get details for audit
+      const targetUser = await this.userRepository.getUserById(userId)
+      if (!targetUser) {
+        throw new Error(`User not found: ${userId}`)
+      }
+
+      console.log(`   Target User Email: ${targetUser.email}`)
+      console.log(`   Target User Role: ${targetUser.role}`)
+
+      // Step 5: Delete user via repository (deletes both Firestore and Auth when possible)
+      await this.userRepository.deleteUser(userId)
+
+      console.log(`✅ UserManagementUseCase: User deleted successfully`)
+
+      // Step 6: Create audit log entry
+      try {
+        await this.auditRepository.logAction({
+          projectId: 'system', // System-level action, not project-specific
+          userId: requestingUserId, // Acting user (Super who performed the deletion)
+          action: 'DELETE',
+          resourceType: 'USER_ROLE',
+          resourceId: userId,
+          details: {
+            action_type: 'USER_DELETION',
+            deleted_user_id: userId,
+            deleted_user_email: targetUser.email,
+            deleted_user_role: targetUser.role,
+            deleted_by: requestingUserId,
+            deleted_by_email: requestingUser.email,
+          },
+          timestamp: new Date(),
+        })
+
+        console.log('✅ UserManagementUseCase: Audit log created for user deletion')
+      } catch (auditError) {
+        // Audit logging failure should not fail the operation
+        console.error(
+          '❌ UserManagementUseCase: Failed to create audit log (user deletion was still successful):',
+          auditError
+        )
+      }
+    } catch (error) {
+      console.error('❌ UserManagementUseCase: Failed to delete user', error)
+      throw error
     }
   }
 

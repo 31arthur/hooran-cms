@@ -115,4 +115,19 @@ export interface ISchemaRepository {
    * @returns Promise<boolean> - True if schema exists
    */
   schemaExists(projectId: string, schemaId: string): Promise<boolean>
+
+  /**
+   * Check if a schema name already exists in the project
+   * Used for real-time duplicate name validation
+   *
+   * @param projectId - The project ID
+   * @param schemaName - The schema name to check
+   * @param excludeSchemaId - Optional schema ID to exclude (for edit mode)
+   * @returns Promise<boolean> - True if name exists
+   */
+  schemaNameExists(
+    projectId: string,
+    schemaName: string,
+    excludeSchemaId?: string
+  ): Promise<boolean>
 }

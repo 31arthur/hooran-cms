@@ -28,7 +28,8 @@ import {
   serverTimestamp,
   deleteDoc,
 } from 'firebase/firestore'
-import { db } from '@/firebase/config'
+import { db, auth } from '@/firebase/config'
+import { deleteUser as deleteAuthUser } from 'firebase/auth'
 import type { IUserRepository } from '@/domain/repositories'
 import type { User, UserRole, CreateUserInput, UpdateUserInput } from '@/domain/entities/User'
 import { UserAdapter } from '../adapters/UserAdapter'
@@ -305,6 +306,11 @@ export class FirebaseUserRepository implements IUserRepository {
       const oldRole = existingData.role || 'User'
       const oldProjects = existingData.projects || []
 
+      // CRITICAL - Super user role cannot be changed
+      if (oldRole === 'Super') {
+        throw new Error('Cannot change role of a Super user. Super user role is permanent.')
+      }
+
       // If no change in role, skip update
       if (oldRole === newRole) {
         console.log('⚠️ FirebaseUserRepository: Role unchanged, skipping update')
@@ -557,6 +563,19 @@ export class FirebaseUserRepository implements IUserRepository {
   /**
    * Delete user
    *
+   * Deletes both the Firestore user document AND the Firebase Auth account.
+   * This is a destructive operation that cannot be undone.
+   *
+   * **IMPORTANT LIMITATION:**
+   * Firebase Auth requires that the user be recently authenticated to delete their account.
+   * This method can only delete the Firestore document. The Auth account deletion requires
+   * admin privileges via Firebase Admin SDK or the user must be signed in.
+   *
+   * For production use, consider:
+   * 1. Using Firebase Admin SDK on the backend to delete Auth users
+   * 2. Using Firebase Cloud Functions triggered by Firestore document deletion
+   * 3. Or marking users as "deleted" instead of actually deleting them
+   *
    * @param userId - The user ID to delete
    * @returns Promise<void>
    */
@@ -564,10 +583,40 @@ export class FirebaseUserRepository implements IUserRepository {
     try {
       console.log(`🗑️ FirebaseUserRepository: Deleting user ${userId}`)
 
+      // Step 1: Delete Firestore user document
       const userDocRef = doc(db, 'users', userId)
       await deleteDoc(userDocRef)
+      console.log(`✅ FirebaseUserRepository: User Firestore document deleted`)
 
-      console.log(`✅ FirebaseUserRepository: User deleted successfully`)
+      // Step 2: Attempt to delete Firebase Auth user
+      // NOTE: This only works if the current authenticated user is the one being deleted
+      // OR if using Firebase Admin SDK (which we don't have in client-side code)
+      try {
+        const currentUser = auth.currentUser
+        if (currentUser && currentUser.uid === userId) {
+          // Can only delete if the user is currently signed in
+          await deleteAuthUser(currentUser)
+          console.log(`✅ FirebaseUserRepository: User Firebase Auth account deleted`)
+        } else {
+          console.warn(
+            `⚠️ FirebaseUserRepository: Cannot delete Firebase Auth account for user ${userId}. ` +
+            `Auth deletion requires Firebase Admin SDK or the user must be currently signed in. ` +
+            `Only the Firestore document has been deleted.`
+          )
+        }
+      } catch (authError) {
+        console.error(
+          `❌ FirebaseUserRepository: Failed to delete Firebase Auth account (Firestore document was deleted):`,
+          authError
+        )
+        // Don't throw - Firestore deletion was successful
+        console.warn(
+          `⚠️ FirebaseUserRepository: The user's Firestore document was deleted, but the Auth account remains. ` +
+          `Consider using Firebase Admin SDK on the backend for complete user deletion.`
+        )
+      }
+
+      console.log(`✅ FirebaseUserRepository: User deletion completed`)
     } catch (error) {
       console.error('❌ FirebaseUserRepository: Error deleting user:', error)
       throw new Error(`Failed to delete user: ${error instanceof Error ? error.message : 'Unknown error'}`)

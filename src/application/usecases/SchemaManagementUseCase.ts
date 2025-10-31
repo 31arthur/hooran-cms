@@ -36,6 +36,7 @@ import type {
 import type { ISchemaRepository } from '@/domain/repositories/ISchemaRepository'
 import type { IContentRepository } from '@/domain/repositories/IContentRepository'
 import type { IAuditRepository } from '@/domain/repositories/IAuditRepository'
+import type { IMediaManagementUseCase } from './IMediaManagementUseCase'
 import type {
   SchemaDefinition,
   CreateSchemaInput,
@@ -53,6 +54,7 @@ export class SchemaManagementUseCase implements ISchemaManagementUseCase {
   private readonly schemaRepository: ISchemaRepository
   private readonly contentRepository: IContentRepository
   private readonly auditRepository: IAuditRepository
+  private readonly mediaManagement: IMediaManagementUseCase
 
   /**
    * Constructor with dependency injection
@@ -64,11 +66,13 @@ export class SchemaManagementUseCase implements ISchemaManagementUseCase {
   constructor(
     schemaRepository: ISchemaRepository,
     contentRepository: IContentRepository,
-    auditRepository: IAuditRepository
+    auditRepository: IAuditRepository,
+    mediaManagement: IMediaManagementUseCase
   ) {
     this.schemaRepository = schemaRepository
     this.contentRepository = contentRepository
     this.auditRepository = auditRepository
+    this.mediaManagement = mediaManagement
   }
 
   /**
@@ -418,6 +422,50 @@ export class SchemaManagementUseCase implements ISchemaManagementUseCase {
    * @param userId - The Super user performing the deletion
    * @returns Promise<void>
    */
+  /**
+   * Extract all media IDs from content entries
+   * Looks for all media-related field types in the data
+   */
+  private extractMediaIds(contentEntries: any[], schemaFields: SchemaField[]): string[] {
+    const mediaIds: string[] = []
+
+    // Get all media field names from schema
+    // Check for all media-related field types
+    const mediaFieldNames = schemaFields
+      .filter(field =>
+        field.type === 'media' ||
+        field.type === 'photo' ||
+        field.type === 'multiplePhotos' ||
+        field.type === 'video' ||
+        field.type === 'multipleVideos' ||
+        field.type === 'multipleMedia' ||
+        field.type === 'svg'
+      )
+      .map(field => field.name)
+
+    // Extract media IDs from each content entry
+    for (const entry of contentEntries) {
+      if (!entry.data) continue
+
+      for (const fieldName of mediaFieldNames) {
+        const value = entry.data[fieldName]
+
+        if (!value) continue
+
+        // Handle single media field
+        if (typeof value === 'string') {
+          mediaIds.push(value)
+        }
+        // Handle multiple media field
+        else if (Array.isArray(value)) {
+          mediaIds.push(...value.filter((id: any) => typeof id === 'string'))
+        }
+      }
+    }
+
+    return [...new Set(mediaIds)] // Remove duplicates
+  }
+
   async deleteSchema(projectId: string, schemaId: string, userId: string): Promise<void> {
     console.log(`🗑️ SchemaManagementUseCase: Deleting schema ${schemaId}`)
 
@@ -427,31 +475,68 @@ export class SchemaManagementUseCase implements ISchemaManagementUseCase {
     this.validateUserId(userId)
 
     try {
-      // Step 2: Fetch schema to get metadata
+      // Step 2: Fetch schema to get metadata and field definitions
       const existingSchema = await this.schemaRepository.getSchemaById(projectId, schemaId)
       if (!existingSchema) {
         throw new Error(`Schema "${schemaId}" not found in project "${projectId}"`)
       }
 
-      // Step 3: CRITICAL - Validate content existence
-      console.log('🔍 Checking for existing content entries...')
-      const contentCount = await this.contentRepository.countContentEntries(projectId, schemaId)
+      // Step 3: Get all content entries for this schema
+      console.log('🔍 Fetching content entries to cleanup media...')
+      const contentEntries = await this.contentRepository.getContentEntries(projectId, schemaId, {
+        limit: 10000, // Get all entries (high limit to ensure we get everything)
+      })
+      const contentCount = contentEntries.length
 
-      if (contentCount > 0) {
-        throw new Error(
-          `Cannot delete schema. ${contentCount} content entries exist for collection "${schemaId}". ` +
-          `Please delete all content entries before deleting the schema.`
-        )
+      console.log(`📊 Found ${contentCount} content entries`)
+
+      // Step 4: Extract and delete all media files from storage
+      if (contentCount > 0 && existingSchema.fields) {
+        const mediaIds = this.extractMediaIds(contentEntries, existingSchema.fields)
+
+        if (mediaIds.length > 0) {
+          console.log(`🗑️ Deleting ${mediaIds.length} media files from storage...`)
+
+          for (const mediaId of mediaIds) {
+            try {
+              await this.mediaManagement.deleteMedia({
+                mediaId,
+                projectId,
+                userId,
+                userRole: 'Super', // System deletion, bypass permission checks
+              })
+              console.log(`✅ Deleted media: ${mediaId}`)
+            } catch (mediaError) {
+              console.error(`❌ Failed to delete media ${mediaId}:`, mediaError)
+              // Continue with other files even if one fails
+            }
+          }
+
+          console.log(`✅ Completed media cleanup (${mediaIds.length} files)`)
+        } else {
+          console.log('ℹ️ No media files found in content entries')
+        }
+
+        // Step 4b: Delete all content entries
+        console.log(`🗑️ Deleting ${contentCount} content entries...`)
+        for (const entry of contentEntries) {
+          try {
+            await this.contentRepository.deleteContentEntry(projectId, schemaId, entry.id, userId)
+            console.log(`✅ Deleted content entry: ${entry.id}`)
+          } catch (contentError) {
+            console.error(`❌ Failed to delete content entry ${entry.id}:`, contentError)
+            // Continue with other entries even if one fails
+          }
+        }
+        console.log(`✅ Completed content deletion (${contentCount} entries)`)
       }
 
-      console.log('✅ No content entries found - safe to delete')
-
-      // Step 4: Delete schema via repository
+      // Step 5: Delete schema via repository
       await this.schemaRepository.deleteSchema(projectId, schemaId, schemaId, userId)
 
-      console.log(`✅ Schema deleted: ${schemaId}`)
+      console.log(`✅ Schema and all content deleted: ${schemaId}`)
 
-      // Step 5: MANDATORY AUDIT LOGGING
+      // Step 6: MANDATORY AUDIT LOGGING
       try {
         await this.auditRepository.logAction({
           projectId,
@@ -463,7 +548,10 @@ export class SchemaManagementUseCase implements ISchemaManagementUseCase {
             schema_name: existingSchema.name,
             schema_id: schemaId,
             field_count: existingSchema.fields?.length || 0,
-            deletion_verified: 'Content collection was empty',
+            content_entries_deleted: contentCount,
+            media_files_deleted: contentCount > 0 && existingSchema.fields
+              ? this.extractMediaIds(contentEntries, existingSchema.fields).length
+              : 0,
           },
           timestamp: new Date(),
         })

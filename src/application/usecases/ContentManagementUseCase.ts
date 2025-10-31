@@ -54,8 +54,6 @@ import type {
   GetContentEntriesOptions,
   SchemaDefinition,
 } from '@/domain/entities'
-import { ContentMapper } from '@/domain/dtos'
-import type { ContentListDTO } from '@/domain/dtos'
 
 /**
  * ContentManagementUseCase
@@ -95,7 +93,7 @@ export class ContentManagementUseCase implements IContentManagementUseCase {
    * Business Logic:
    * - Validates user has access to project
    * - Applies role-based filtering
-   * - Maps entities to DTOs for UI consumption
+   * - Returns full ContentEntry entities with data field
    */
   async getContentEntries(
     projectId: string,
@@ -103,15 +101,15 @@ export class ContentManagementUseCase implements IContentManagementUseCase {
     options: GetContentEntriesOptions,
     userId: string,
     userRole: string
-  ): Promise<ContentListDTO[]> {
+  ): Promise<ContentEntry[]> {
     // Validate project access (business rule)
     await this.validateProjectAccess(projectId, userId, userRole)
 
     // Delegate to repository (data access)
     const entities = await this.contentRepository.getContentEntries(projectId, collectionId, options)
 
-    // Map entities to DTOs (Interface Segregation Principle)
-    return ContentMapper.toListDTOList(entities)
+    // Return full entities (needed for TableDataPage to display all fields)
+    return entities
   }
 
   /**

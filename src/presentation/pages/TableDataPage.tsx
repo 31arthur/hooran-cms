@@ -187,6 +187,8 @@ export function TableDataPage() {
 
         setSchema(schemaData)
         console.log(`✅ TableDataPage: Schema loaded successfully`)
+        console.log('🔍 DEBUG - Schema fields:', schemaData.fields)
+        console.log('🔍 DEBUG - Schema field names:', schemaData.fields.map(f => f.name))
       } catch (err: any) {
         console.error('❌ TableDataPage: Failed to load schema', err)
         setError(err.message || 'Failed to load schema')
@@ -218,6 +220,13 @@ export function TableDataPage() {
         'Super' // TODO: Use actual user role
       )
 
+      // DEBUG: Log what entries look like
+      console.log('🔍 DEBUG - Raw entries from use case:', entries)
+      if (entries.length > 0) {
+        console.log('🔍 DEBUG - First entry from use case:', entries[0])
+        console.log('🔍 DEBUG - First entry.data from use case:', (entries[0] as any).data)
+      }
+
       // Transform ContentListDTO to TableRecord format
       const tableRecords: TableRecord[] = entries.map((entry) => ({
         ...entry,
@@ -227,6 +236,13 @@ export function TableDataPage() {
       setRecords(tableRecords)
       setFilteredRecords(tableRecords)
       console.log(`✅ TableDataPage: Loaded ${tableRecords.length} records`)
+
+      // DEBUG: Log first record structure
+      if (tableRecords.length > 0) {
+        console.log('🔍 DEBUG - First record:', tableRecords[0])
+        console.log('🔍 DEBUG - First record.data:', tableRecords[0].data)
+        console.log('🔍 DEBUG - First record.data keys:', Object.keys(tableRecords[0].data || {}))
+      }
     } catch (err: any) {
       console.error('❌ TableDataPage: Failed to load records', err)
       setError(err.message || 'Failed to load records')
@@ -709,11 +725,15 @@ export function TableDataPage() {
                   <TableBody>
                     {filteredRecords.map((record) => (
                       <TableRow key={record.id}>
-                        {schema.fields.map((field) => (
-                          <TableCell key={field.name}>
-                            {renderFieldValue(field, record.data?.[field.name])}
-                          </TableCell>
-                        ))}
+                        {schema.fields.map((field) => {
+                          const fieldValue = record.data?.[field.name]
+                          console.log(`🔍 DEBUG - Field "${field.name}" (${field.label}):`, fieldValue, '| record.data:', record.data)
+                          return (
+                            <TableCell key={field.name}>
+                              {renderFieldValue(field, fieldValue)}
+                            </TableCell>
+                          )
+                        })}
                         <TableCell>
                           {record.createdAt
                             ? new Date(record.createdAt).toLocaleDateString()

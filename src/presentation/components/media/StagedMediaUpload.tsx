@@ -24,6 +24,10 @@ export interface StagedFile {
   name: string
   size: number
   type: string
+  id: string // Unique ID for tracking
+  uploadProgress?: number // 0-100 for progress tracking
+  uploadStatus?: 'pending' | 'uploading' | 'uploaded' | 'error' // Upload state
+  error?: string // Error message if upload failed
 }
 
 interface StagedMediaUploadProps {
@@ -136,6 +140,7 @@ export function StagedMediaUpload({
       name: file.name,
       size: file.size,
       type: file.type,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     }
 
     setStagedFile(staged)

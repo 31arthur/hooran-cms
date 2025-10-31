@@ -125,6 +125,8 @@ export function ContentManager() {
   const dynamicColumns = useMemo(() => {
     if (!schema || !schema.fields) return []
 
+    console.log('🔍 DEBUG - Schema fields:', schema.fields)
+
     return schema.fields.map((field) => ({
       id: field.name,
       label: field.label,
@@ -326,6 +328,8 @@ export function ContentManager() {
 
         setSchema(schemaData)
         console.log('✅ ContentManager: Schema loaded', schemaData)
+        console.log('🔍 DEBUG - Schema fields array:', schemaData.fields)
+        console.log('🔍 DEBUG - Schema fields count:', schemaData.fields?.length || 0)
       } catch (err) {
         console.error('❌ ContentManager: Failed to fetch schema', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch schema')
@@ -382,6 +386,13 @@ export function ContentManager() {
 
         setContentEntries(entries)
         console.log(`✅ ContentManager: Loaded ${entries.length} content entries`)
+
+        // DEBUG: Log first entry to inspect data structure
+        if (entries.length > 0) {
+          console.log('🔍 DEBUG - First entry structure:', entries[0])
+          console.log('🔍 DEBUG - First entry.data:', entries[0].data)
+          console.log('🔍 DEBUG - First entry.data keys:', Object.keys(entries[0].data || {}))
+        }
       } catch (err) {
         console.error('❌ ContentManager: Failed to fetch content', err)
         setError(err instanceof Error ? err.message : 'Failed to fetch content entries')
@@ -787,13 +798,17 @@ export function ContentManager() {
                           </div>
                         </TableCell>
                         {/* Dynamic data cells from schema fields */}
-                        {dynamicColumns.map((column) => (
-                          <TableCell key={column.id} className="max-w-xs">
-                            <div className="truncate" title={formatCellValue(entry.data?.[column.name], column.type)}>
-                              {formatCellValue(entry.data?.[column.name], column.type)}
-                            </div>
-                          </TableCell>
-                        ))}
+                        {dynamicColumns.map((column) => {
+                          const cellValue = entry.data?.[column.name]
+                          console.log(`🔍 DEBUG - Accessing column "${column.name}" (${column.label}):`, cellValue, '| entry.data:', entry.data)
+                          return (
+                            <TableCell key={column.id} className="max-w-xs">
+                              <div className="truncate" title={formatCellValue(cellValue, column.type)}>
+                                {formatCellValue(cellValue, column.type)}
+                              </div>
+                            </TableCell>
+                          )
+                        })}
                         <TableCell>
                           <span
                             className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${

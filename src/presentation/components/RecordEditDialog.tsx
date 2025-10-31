@@ -35,6 +35,8 @@ export const RecordEditDialog: React.FC<RecordEditDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<string | null>(null)
   const [stagedMediaFiles, setStagedMediaFiles] = useState<Record<string, StagedFile | StagedFile[]>>({})
+  const [_existingMedia, setExistingMedia] = useState<Record<string, any>>({})
+  const [_removedMediaIds, _setRemovedMediaIds] = useState<string[]>([])
   const formRef = useRef<DynamicFormRef>(null)
 
   const { contentManagement, mediaManagement } = useCMSServices()
@@ -51,8 +53,54 @@ export const RecordEditDialog: React.FC<RecordEditDialogProps> = ({
   useEffect(() => {
     if (record && formRef.current) {
       formRef.current.setFormData(record.data)
+      // Fetch existing media files
+      fetchExistingMedia()
     }
   }, [record])
+
+  /**
+   * Fetch existing media files from storage
+   */
+  const fetchExistingMedia = async () => {
+    if (!record || !selectedProject || !currentUser || !userRole) return
+
+    const mediaIds: Record<string, string | string[]> = {}
+    const fetchedMedia: Record<string, any> = {}
+
+    // Extract media IDs from record data based on schema
+    for (const field of schema.fields) {
+      const isMediaField = ['photo', 'video', 'media', 'multiplePhotos', 'multipleVideos', 'multipleMedia', 'svg'].includes(field.type)
+
+      if (isMediaField && record.data[field.name]) {
+        mediaIds[field.name] = record.data[field.name]
+      }
+    }
+
+    // Fetch actual MediaFile objects for each ID
+    for (const [fieldName, value] of Object.entries(mediaIds)) {
+      try {
+        if (Array.isArray(value)) {
+          // Multiple media field
+          const mediaFiles = await Promise.all(
+            value.map(id =>
+              mediaManagement.getMediaById(id, selectedProject.projectId, currentUser.uid, userRole)
+            )
+          )
+          fetchedMedia[fieldName] = mediaFiles.filter(f => f !== null)
+        } else if (typeof value === 'string') {
+          // Single media field
+          const mediaFile = await mediaManagement.getMediaById(value, selectedProject.projectId, currentUser.uid, userRole)
+          if (mediaFile) {
+            fetchedMedia[fieldName] = mediaFile
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch media for field ${fieldName}:`, error)
+      }
+    }
+
+    setExistingMedia(fetchedMedia)
+  }
 
   const handleFormChange = (_data: Record<string, any>, stagedMedia?: Record<string, StagedFile | StagedFile[]>) => {
     if (stagedMedia) {
@@ -71,6 +119,27 @@ export const RecordEditDialog: React.FC<RecordEditDialogProps> = ({
       }
     }
     return cleaned
+  }
+
+  /**
+   * Update progress for a specific staged file
+   */
+  const updateFileProgress = (fileId: string, progress: number, status: 'uploading' | 'uploaded' | 'error', error?: string) => {
+    setStagedMediaFiles(prev => {
+      const updated = { ...prev }
+      for (const [fieldName, value] of Object.entries(updated)) {
+        if (Array.isArray(value)) {
+          updated[fieldName] = value.map(file =>
+            file.id === fileId
+              ? { ...file, uploadProgress: progress, uploadStatus: status, error }
+              : file
+          )
+        } else if (value && value.id === fileId) {
+          updated[fieldName] = { ...value, uploadProgress: progress, uploadStatus: status, error }
+        }
+      }
+      return updated
+    })
   }
 
   /**
@@ -96,20 +165,30 @@ export const RecordEditDialog: React.FC<RecordEditDialogProps> = ({
               continue
             }
 
-            const result = await mediaManagement.uploadMedia({
-              file: staged.file,
-              projectId: selectedProject!.projectId,
-              userId: currentUser!.uid,
-              userRole: userRole || 'User',
-              alt: staged.name,
-              caption: `Uploaded from ${schema.name}`,
-              tags: [schema.name],
-            })
+            try {
+              updateFileProgress(staged.id, 0, 'uploading')
+              updateFileProgress(staged.id, 10, 'uploading')
 
-            if (result.success && result.file) {
-              mediaIds.push(result.file.id)
-            } else {
-              throw new Error(result.error || 'Upload failed')
+              const result = await mediaManagement.uploadMedia({
+                file: staged.file,
+                projectId: selectedProject!.projectId,
+                userId: currentUser!.uid,
+                userRole: userRole || 'User',
+                alt: staged.name,
+                caption: `Uploaded from ${schema.name}`,
+                tags: [schema.name],
+              })
+
+              if (result.success && result.file) {
+                mediaIds.push(result.file.id)
+                updateFileProgress(staged.id, 100, 'uploaded')
+              } else {
+                updateFileProgress(staged.id, 0, 'error', result.error || 'Upload failed')
+                throw new Error(result.error || 'Upload failed')
+              }
+            } catch (error) {
+              updateFileProgress(staged.id, 0, 'error', error instanceof Error ? error.message : 'Upload failed')
+              throw error
             }
           }
 
@@ -124,21 +203,31 @@ export const RecordEditDialog: React.FC<RecordEditDialogProps> = ({
             continue
           }
 
-          setUploadProgress(`Uploading ${fieldName}...`)
-          const result = await mediaManagement.uploadMedia({
-            file: stagedValue.file,
-            projectId: selectedProject!.projectId,
-            userId: currentUser!.uid,
-            userRole: userRole || 'User',
-            alt: stagedValue.name,
-            caption: `Uploaded from ${schema.name}`,
-            tags: [schema.name],
-          })
+          try {
+            setUploadProgress(`Uploading ${fieldName}...`)
+            updateFileProgress(stagedValue.id, 0, 'uploading')
+            updateFileProgress(stagedValue.id, 10, 'uploading')
 
-          if (result.success && result.file) {
-            uploadedMediaIds[fieldName] = result.file.id
-          } else {
-            throw new Error(result.error || 'Upload failed')
+            const result = await mediaManagement.uploadMedia({
+              file: stagedValue.file,
+              projectId: selectedProject!.projectId,
+              userId: currentUser!.uid,
+              userRole: userRole || 'User',
+              alt: stagedValue.name,
+              caption: `Uploaded from ${schema.name}`,
+              tags: [schema.name],
+            })
+
+            if (result.success && result.file) {
+              uploadedMediaIds[fieldName] = result.file.id
+              updateFileProgress(stagedValue.id, 100, 'uploaded')
+            } else {
+              updateFileProgress(stagedValue.id, 0, 'error', result.error || 'Upload failed')
+              throw new Error(result.error || 'Upload failed')
+            }
+          } catch (error) {
+            updateFileProgress(stagedValue.id, 0, 'error', error instanceof Error ? error.message : 'Upload failed')
+            throw error
           }
         }
       } catch (error) {

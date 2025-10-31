@@ -12,15 +12,18 @@
  * - Handles Firebase-specific errors
  * - Is completely replaceable without affecting business logic
  *
- * **Firestore Structure:**
- * projects/{projectId}/data/{collectionId}/entries/{entryId}
- *   - projectId: string (multi-tenancy enforcement)
+ * **NEW Firestore Structure (Root-Level):**
+ * tables/{collectionId}/entries/{entryId}
+ *   - projectId: string (multi-tenancy enforcement - which project owns this entry)
  *   - collectionId: string (table/collection name)
  *   - data: Record<string, any> (schema-defined fields)
  *   - status: 'draft' | 'published' | 'archived'
  *   - createdAt: Timestamp
  *   - updatedAt: Timestamp
  *   - createdBy: string
+ *
+ * projects/{projectId}
+ *   - tables: string[] (array of table IDs belonging to this project)
  */
 
 import {
@@ -78,14 +81,15 @@ export class FirebaseContentRepository implements IContentRepository {
 
       const { limit = 50, search, filterField, filterValue } = options
 
-      // Get project-scoped collection reference
-      // Path: projects/{projectId}/data/{collectionId}/entries
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const dataCollectionRef = collection(collectionDocRef, 'entries')
+      // Get root-level tables collection reference
+      // NEW Path: tables/{collectionId}/entries
+      const dataCollectionRef = collection(db, 'tables', collectionId, 'entries')
 
       // Build query constraints
       const constraints: any[] = []
+
+      // Add project filter (multi-tenancy enforcement)
+      constraints.push(where('projectId', '==', projectId))
 
       // Add filter constraint
       if (filterField && filterValue !== undefined && filterValue !== null && filterValue !== '') {
@@ -112,7 +116,22 @@ export class FirebaseContentRepository implements IContentRepository {
       // Convert to domain entities using adapter
       const entries: ContentEntry[] = []
       querySnapshot.forEach((docSnap) => {
-        const entry = ContentAdapter.toEntity(docSnap.id, docSnap.data(), projectId, collectionId)
+        const rawData = docSnap.data()
+
+        // DEBUG: Log first document's raw Firestore data
+        if (entries.length === 0) {
+          console.log('🔍 DEBUG - Raw Firestore doc data:', rawData)
+          console.log('🔍 DEBUG - Raw Firestore doc.data field:', rawData.data)
+        }
+
+        const entry = ContentAdapter.toEntity(docSnap.id, rawData, projectId, collectionId)
+
+        // DEBUG: Log first converted entry
+        if (entries.length === 0) {
+          console.log('🔍 DEBUG - Converted entry:', entry)
+          console.log('🔍 DEBUG - Converted entry.data:', entry.data)
+        }
+
         entries.push(entry)
       })
 
@@ -149,11 +168,8 @@ export class FirebaseContentRepository implements IContentRepository {
       }
 
       // Get document reference with proper path structure
-      // Path: projects/{projectId}/data/{collectionId}/entries/{entryId}
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const entriesCollectionRef = collection(collectionDocRef, 'entries')
-      const entryDocRef = doc(entriesCollectionRef, entryId)
+      // NEW Path: tables/{collectionId}/entries/{entryId}
+      const entryDocRef = doc(db, 'tables', collectionId, 'entries', entryId)
 
       // Fetch document
       const docSnap = await getDoc(entryDocRef)
@@ -203,11 +219,9 @@ export class FirebaseContentRepository implements IContentRepository {
         throw new Error('Invalid entry data: The "data" field is required and must be an object')
       }
 
-      // Get project-scoped collection reference
-      // Path: projects/{projectId}/data/{collectionId}/entries
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const dataCollectionRef = collection(collectionDocRef, 'entries')
+      // Get root-level tables collection reference
+      // NEW Path: tables/{collectionId}/entries
+      const dataCollectionRef = collection(db, 'tables', collectionId, 'entries')
 
       // Prepare entry document using adapter
       const entryDocument = {
@@ -220,6 +234,9 @@ export class FirebaseContentRepository implements IContentRepository {
       const docRef = await addDoc(dataCollectionRef, entryDocument)
       const contentId = docRef.id
       console.log(`✅ FirebaseContentRepository: Entry created with ID: ${contentId}`)
+
+      // Note: Table is already in project.tables array (added during schema creation)
+      // No need to add it again here
 
       // Audit logging
       try {
@@ -311,11 +328,8 @@ export class FirebaseContentRepository implements IContentRepository {
       }
 
       // Update Firestore with proper path structure
-      // Path: projects/{projectId}/data/{collectionId}/entries/{entryId}
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const entriesCollectionRef = collection(collectionDocRef, 'entries')
-      const entryDocRef = doc(entriesCollectionRef, entryId)
+      // NEW Path: tables/{collectionId}/entries/{entryId}
+      const entryDocRef = doc(db, 'tables', collectionId, 'entries', entryId)
       await updateDoc(entryDocRef, updateData)
       console.log(`✅ FirebaseContentRepository: Entry ${entryId} updated`)
 
@@ -387,11 +401,8 @@ export class FirebaseContentRepository implements IContentRepository {
         `Entry ${entryId.substring(0, 8)}`
 
       // Delete from Firestore with proper path structure
-      // Path: projects/{projectId}/data/{collectionId}/entries/{entryId}
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const entriesCollectionRef = collection(collectionDocRef, 'entries')
-      const entryDocRef = doc(entriesCollectionRef, entryId)
+      // NEW Path: tables/{collectionId}/entries/{entryId}
+      const entryDocRef = doc(db, 'tables', collectionId, 'entries', entryId)
       await deleteDoc(entryDocRef)
       console.log(`✅ FirebaseContentRepository: Entry ${entryId} deleted`)
 
@@ -629,14 +640,15 @@ export class FirebaseContentRepository implements IContentRepository {
     try {
       console.log(`📊 FirebaseContentRepository: Counting entries in ${collectionId}`)
 
-      // Get project-scoped collection reference
-      // Path: projects/{projectId}/data/{collectionId}/entries
-      const projectDocRef = doc(db, 'projects', projectId)
-      const collectionDocRef = doc(projectDocRef, 'data', collectionId)
-      const dataCollectionRef = collection(collectionDocRef, 'entries')
+      // Get root-level tables collection reference
+      // NEW Path: tables/{collectionId}/entries
+      const dataCollectionRef = collection(db, 'tables', collectionId, 'entries')
 
       // Build query constraints
       const constraints: any[] = []
+
+      // Add project filter (multi-tenancy enforcement)
+      constraints.push(where('projectId', '==', projectId))
 
       // Add status filter if provided
       if (status) {

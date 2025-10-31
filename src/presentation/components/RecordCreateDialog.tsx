@@ -64,6 +64,27 @@ export const RecordCreateDialog: React.FC<RecordCreateDialogProps> = ({
   }
 
   /**
+   * Update progress for a specific staged file
+   */
+  const updateFileProgress = (fileId: string, progress: number, status: 'uploading' | 'uploaded' | 'error', error?: string) => {
+    setStagedMediaFiles(prev => {
+      const updated = { ...prev }
+      for (const [fieldName, value] of Object.entries(updated)) {
+        if (Array.isArray(value)) {
+          updated[fieldName] = value.map(file =>
+            file.id === fileId
+              ? { ...file, uploadProgress: progress, uploadStatus: status, error }
+              : file
+          )
+        } else if (value && value.id === fileId) {
+          updated[fieldName] = { ...value, uploadProgress: progress, uploadStatus: status, error }
+        }
+      }
+      return updated
+    })
+  }
+
+  /**
    * Upload staged media files and return their IDs
    */
   const uploadStagedMedia = async (): Promise<Record<string, any>> => {
@@ -79,27 +100,43 @@ export const RecordCreateDialog: React.FC<RecordCreateDialogProps> = ({
           setUploadProgress(`Uploading ${fieldName} (${stagedValue.length} files)...`)
           const mediaIds: string[] = []
 
-          for (const staged of stagedValue) {
+          for (let i = 0; i < stagedValue.length; i++) {
+            const staged = stagedValue[i]
             // Skip if staged object doesn't have file
             if (!staged || !staged.file) {
               console.warn(`Skipping invalid staged file in ${fieldName}`)
               continue
             }
 
-            const result = await mediaManagement.uploadMedia({
-              file: staged.file,
-              projectId: selectedProject!.projectId,
-              userId: currentUser!.uid,
-              userRole: userRole || 'User',
-              alt: staged.name,
-              caption: `Uploaded from ${schema.name}`,
-              tags: [schema.name],
-            })
+            try {
+              // Update status to uploading
+              updateFileProgress(staged.id, 0, 'uploading')
 
-            if (result.success && result.file) {
-              mediaIds.push(result.file.id)
-            } else {
-              throw new Error(result.error || 'Upload failed')
+              // Simulate progress (Firebase doesn't provide real-time progress)
+              // Start at 10% and increment to 90% during upload
+              updateFileProgress(staged.id, 10, 'uploading')
+
+              const result = await mediaManagement.uploadMedia({
+                file: staged.file,
+                projectId: selectedProject!.projectId,
+                userId: currentUser!.uid,
+                userRole: userRole || 'User',
+                alt: staged.name,
+                caption: `Uploaded from ${schema.name}`,
+                tags: [schema.name],
+              })
+
+              if (result.success && result.file) {
+                mediaIds.push(result.file.id)
+                // Mark as uploaded
+                updateFileProgress(staged.id, 100, 'uploaded')
+              } else {
+                updateFileProgress(staged.id, 0, 'error', result.error || 'Upload failed')
+                throw new Error(result.error || 'Upload failed')
+              }
+            } catch (error) {
+              updateFileProgress(staged.id, 0, 'error', error instanceof Error ? error.message : 'Upload failed')
+              throw error
             }
           }
 
@@ -114,21 +151,31 @@ export const RecordCreateDialog: React.FC<RecordCreateDialogProps> = ({
             continue
           }
 
-          setUploadProgress(`Uploading ${fieldName}...`)
-          const result = await mediaManagement.uploadMedia({
-            file: stagedValue.file,
-            projectId: selectedProject!.projectId,
-            userId: currentUser!.uid,
-            userRole: userRole || 'User',
-            alt: stagedValue.name,
-            caption: `Uploaded from ${schema.name}`,
-            tags: [schema.name],
-          })
+          try {
+            setUploadProgress(`Uploading ${fieldName}...`)
+            updateFileProgress(stagedValue.id, 0, 'uploading')
+            updateFileProgress(stagedValue.id, 10, 'uploading')
 
-          if (result.success && result.file) {
-            uploadedMediaIds[fieldName] = result.file.id
-          } else {
-            throw new Error(result.error || 'Upload failed')
+            const result = await mediaManagement.uploadMedia({
+              file: stagedValue.file,
+              projectId: selectedProject!.projectId,
+              userId: currentUser!.uid,
+              userRole: userRole || 'User',
+              alt: stagedValue.name,
+              caption: `Uploaded from ${schema.name}`,
+              tags: [schema.name],
+            })
+
+            if (result.success && result.file) {
+              uploadedMediaIds[fieldName] = result.file.id
+              updateFileProgress(stagedValue.id, 100, 'uploaded')
+            } else {
+              updateFileProgress(stagedValue.id, 0, 'error', result.error || 'Upload failed')
+              throw new Error(result.error || 'Upload failed')
+            }
+          } catch (error) {
+            updateFileProgress(stagedValue.id, 0, 'error', error instanceof Error ? error.message : 'Upload failed')
+            throw error
           }
         }
       } catch (error) {

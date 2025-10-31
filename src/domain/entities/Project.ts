@@ -57,6 +57,19 @@ export interface Project {
    * Last update timestamp
    */
   updatedAt?: Date
+
+  /**
+   * Array of schema IDs associated with this project
+   * Schemas are stored in root-level 'schemas' collection
+   */
+  schemas?: string[]
+
+  /**
+   * Array of table IDs associated with this project
+   * Tables are stored in root-level 'tables' collection
+   * Note: table IDs match schema IDs (one table per schema)
+   */
+  tables?: string[]
 }
 
 /**

@@ -288,28 +288,8 @@ export function IntuitiveSchemaBuilderPage() {
 
       console.log('✅ Schema saved successfully')
 
-      // Add collection reference to project records (only for new schemas)
-      if (!isEditMode) {
-        try {
-          const { DIContainer, DI_TYPES } = await import('@/domain/di')
-          const projectRecordsRepo = DIContainer.resolve<any>(DI_TYPES.ProjectRecordsRepository)
-
-          await projectRecordsRepo.addCollectionToProject({
-            projectId: selectedProject.projectId,
-            schemaId: generatedSchemaId,
-            collectionName: schemaData.name,
-            collectionSlug,
-            description: schemaData.description,
-            icon: schemaData.icon,
-            addedBy: currentUser!.uid,
-          })
-
-          console.log('✅ Collection reference added to project records')
-        } catch (recordsError) {
-          console.error('Failed to add collection to project records:', recordsError)
-          // Don't fail the whole operation if this fails
-        }
-      }
+      // Note: Table metadata is now automatically created in root-level 'tables' collection
+      // by FirebaseSchemaRepository when schema is created. No need for separate ProjectRecords call.
 
       // Log audit entry
       try {
